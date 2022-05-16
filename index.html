@@ -1,0 +1,734 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<title>reveal.js</title>
+
+		<link rel="stylesheet" href="dist/reset.css">
+		<link rel="stylesheet" href="dist/reveal.css">
+		<link rel="stylesheet" href="dist/theme/dave.css">
+
+		<!-- Theme used for syntax highlighted code -->
+		<link rel="stylesheet" href="plugin/highlight/monokai.css">
+		<link rel="stylesheet" href="plugin/diagram/revealjs-diagram.css">
+	</head>
+  <body style="position: relative">
+    <header style="position: fixed; border: solid thin #777; background-color: #ddd; padding: 0.5rem; border-radius: 1rem; text-align: left; font-family: courier; font-size: 2rem; margin-left: 1rem; margin-top: 1rem;">
+    @davetron5000
+    </header>
+		<div class="reveal">
+			<div class="slides">
+        <section>
+          <h1 class="smaller">
+            Your Service Layer<br> Needn't be Fancy,<br>It Just Needs to Exist
+          </h1>
+          <h3>David Copeland</h3>
+        </section>
+        <section>
+          <pre><code class="language-ruby" data-noescape data-trim data-line-numbers>
+class Widget < ApplicationRecord
+  belongs_to :manufacturer
+  validates  :price,
+              numericality: { greater_than: 0 }
+end
+          </code></pre>
+        </section>
+        <section>
+          <pre><code class="language-ruby" data-noescape data-trim data-line-numbers>
+class WidgetsController < ApplicationController
+  def create
+    @widget = Widget.new(widget_params)
+    if @widget.save
+      redirect_to widgets_path
+    else
+      render :new
+    end
+  end
+end
+          </code></pre>
+        </section>
+        <section>
+          <pre><code class="language-ruby" data-noescape data-trim data-line-numbers>
+class WidgetsController < ApplicationController
+  def create
+    @widget = Widget.new(widget_params)
+    if @widget.save
+      redirect_to widgets_path
+    else
+      render :new
+    end
+  end
+end
+          </code></pre>
+        </section>
+        <section>
+          <pre><code class="language-ruby" data-noescape data-trim data-line-numbers="5">
+class WidgetsController < ApplicationController
+  def create
+    @widget = Widget.new(widget_params)
+    if @widget.save
+      PreOrderJob.perform_later(@widget.id)
+      redirect_to widgets_path
+    else
+      render :new
+    end
+  end
+end
+          </code></pre>
+        </section>
+        <section>
+          <pre><code class="language-ruby" data-noescape data-trim data-line-numbers="5-9">
+class WidgetsController < ApplicationController
+  def create
+    @widget = Widget.new(widget_params)
+    if @widget.save
+      if @widget.price > 1_000
+        AdminMailer.new_widget(@widget)
+      else
+        PreOrderJob.perform_later(@widget.id)
+      end
+      redirect_to widgets_path
+    else
+      render :new
+    end
+  end
+end
+          </code></pre>
+        </section>
+        <section>
+          <pre><code class="language-ruby" data-noescape data-trim data-line-numbers="5-11">
+class WidgetsController < ApplicationController
+  def create
+    @widget = Widget.new(widget_params)
+    if @widget.save
+      if @widget.manufacturer.legacy?
+        SalesNotification.create!(widget: @widget)
+      elsif @widget.price > 1_000
+        AdminMailer.new_widget(@widget)
+      else
+        PreOrderJob.perform_later(@widget.id)
+      end
+      redirect_to widgets_path
+    else
+      render :new
+    end
+  end
+end
+          </code></pre>
+        </section>
+        <section>
+          <h1>Controllers</h1>
+          <ul>
+            <li class="fragment">Don't instantiate</li>
+            <li class="fragment">Don't call their methods</li>
+            <li class="fragment">Methods take no arguments</li>
+            <li class="fragment">Return value is ignored</li>
+          </ul>
+        </section>
+        <section>
+          <h1>Testing Controllers</h1>
+          <ul>
+            <li class="fragment">System test (slow, flaky)</li>
+            <li class="fragment">Integration test (cumbersome, inaccurate simulation)</li>
+          </ul>
+        </section>
+        <section>
+          <pre><code class="language-ruby" data-noescape data-trim data-line-numbers>
+class Widget < ActiveRecord::Base
+  after_create do
+    if self.manufacturer.legacy?
+      SalesNotification.create!(widget: self)
+    elsif self.price > 1_000
+      AdminMailer.new_widget(self)
+    else
+      PreOrderJob.perform_later(self.id)
+    end
+  end
+end
+          </code></pre>
+        </section>
+        <section>
+          <h1>Two Problems</h1>
+          <ul>
+            <li class="fragment">All other tests have to know about this and adapt.</li>
+            <li class="fragment">“Created widget on website” and “inserted row into <code>WIDGETS</code> table” are different things.</li>
+          </ul>
+        </section>
+        <section>
+          <h1>
+            Treat Rails for what it is
+          </h1>
+            <h2>not what you would like it to be</h2>
+        </section>
+        <section>
+          <pre><code class="language-ruby" data-noescape data-trim data-line-numbers="1|2-10">
+class Widget < ActiveRecord::Base
+  after_create do
+    if self.manufacturer.legacy?
+      SalesNotification.create!(widget: self)
+    elsif self.price > 1_000
+      AdminMailer.new_widget(self)
+    else
+      PreOrderJob.perform_later(self.id)
+    end
+  end
+end
+          </code></pre>
+        </section>
+        <section>
+          <h1>Active Records</h1>
+          <h2>are models of database tables</h2>
+        </section>
+        <section>
+          <h1><code>after_create</code></h1>
+          <h2>allows running code after certain database operations</h2>
+        </section>
+        <section>
+          <h1>A controller</h1>
+          <h2>is for responding to HTTP</h2>
+        </section>
+        <section>
+          <h1>A mailer</h1>
+          <h2>is for sending email</h2>
+        </section>
+        <section>
+          <h1>A job</h1>
+          <h2>is for running code in the background</h2>
+        </section>
+        <section>
+          <h1>«???»</h1>
+          <h2>is for your app's business logic</h2>
+        </section>
+        <section>
+          <h3>
+          Fat Model, Skinny Controller<br>
+          <span>Skinny Model, Skinny Controller</span><br>
+          <span>SOLID</span><br>
+          <span>Hexagons</span><br>
+          <span>Uncle Bob's nonsense</span><br>
+          </h3>
+        </section>
+        <section>
+          <h3 class="red">
+          <del>Fat Model, Skinny Controller</del><br>
+          <del>Skinny Model, Skinny Controller</del><br>
+          <del>SOLID</del><br>
+          <del>Hexagons</del><br>
+          <del>Uncle Bob's nonsense</del><br>
+          </h3>
+        </section>
+        <section>
+          <h1>How does Rails organize the code in your app?</h1>
+        </section>
+        <section>
+          <h2>Your App is Organized by</h2>
+          <h1>Architectural Component</h1>
+        </section>
+        <section>
+          <h3>&nbsp;</h3>
+          <pre><code class="language-plaintext smaller" data-noescape data-trim>
+> ls app
+assets/           # Assets like CSS or Images
+channels/         # Channels for Action Cable
+controllers/      # HTTP
+helpers/          # View helpers
+jobs/             # Background jobs
+mailers/          # Sending email
+models/           # Database Access
+views/            # HTML views
+          </code></pre>
+        </section>
+        <section>
+          <h3>You Would Not Want This</h3>
+          <pre><code class="language-plaintext smaller" data-noescape data-trim>
+> ls app
+assets/           # Assets like CSS or Images and business logic
+channels/         # Channels for Action Cable and business logic
+controllers/      # HTTP                      and business logic
+helpers/          # View helpers              and business logic
+jobs/             # Background jobs           and business logic
+mailers/          # Sending email             and business logic
+models/           # Database Access           and business logic
+views/            # HTML views                and business logic
+          </code></pre>
+        </section>
+        <section>
+          <h1>Business logic</h1>
+          <ul>
+            <li class="red fragment">Not knowable in advance</li>
+            <li class="purple fragment">Complex, easy to misremember or forget</li>
+            <li class="green fragment">Changes frequently</li>
+          </ul>
+        </section>
+        <section>
+          <h3>This Makes It Hard to Manage</h3>
+          <pre><code class="language-plaintext smaller" data-noescape data-trim>
+> ls app
+assets/           # Assets like CSS or Images and business logic
+channels/         # Channels for Action Cable and business logic
+controllers/      # HTTP                      and business logic
+helpers/          # View helpers              and business logic
+jobs/             # Background jobs           and business logic
+mailers/          # Sending email             and business logic
+models/           # Database Access           and business logic
+views/            # HTML views                and business logic
+          </code></pre>
+        </section>
+        <section>
+          <h3>Why do we do this?</h3>
+          <pre><code class="language-plaintext smaller" data-noescape data-trim>
+> ls app
+assets/           # Assets like CSS or Images
+channels/         # Channels for Action Cable
+controllers/      # HTTP
+helpers/          # View helpers
+jobs/             # Background jobs
+mailers/          # Sending email
+models/           # Database Access           and business logic
+views/            # HTML views
+          </code></pre>
+        </section>
+        <section>
+          <blockquote>
+            Active Record is the M in MVC - the model - which is the layer of the system responsible for <mark>representing business data and logic</mark>. Active Record facilitates the creation and use of <mark>business objects whose data requires persistent storage to a database</mark>.
+          </blockquote>
+          <figcaption>
+          – Rails Guide
+          </figcaption>
+        </section>
+        <section>
+          <img src="images/guide-start.png">
+        </section>
+        <section>
+          <img src="images/guide-full.png">
+        </section>
+        <section>
+          <h1><code>app/models</code></h1>
+          <h2>contains models of data—often stored in a database</h2>
+        </section>
+        <section>
+          <h1>That is not the same as</h1>
+          <h2>the model of your company, business, organization, process, or user actions</h2>
+        </section>
+        <section>
+          <h1>Your business logic is its own architectural component</h1>
+        </section>
+        <section>
+          <h1>It is a layer or seam</h1>
+        </section>
+        <section>
+          <img src="images/layers.png">
+        </section>
+        <section>
+          <h1 style="text-align: left">Of note</h1>
+          <h2 style="text-align: left">Not everyone is “in business”</h2>
+        </section>
+        <section>
+          <h1>“Service Layer”</h1>
+          <h2>The Best Term for Most Teams</h2>
+          <ul>
+            <li class="fragment green">Parts of Rails don't sound like “services”</li>
+            <li class="fragment red"><em>Service</em> could mean anything else</li>
+          </ul>
+        </section>
+        <section>
+          <h1>
+            Your Service Layer Needn't be Fancy, It Just Needs to Exist
+          </h1>
+        </section>
+        <section>
+          <pre><code class="language-ruby" data-noescape data-trim data-line-numbers>
+class WidgetsController < ApplicationController
+  def create
+    @widget = Widget.new(widget_params)
+    if @widget.save
+      if @widget.manufacturer.legacy?
+        SalesNotification.create!(widget: @widget)
+      elsif @widget.price > 1_000
+        AdminMailer.new_widget(@widget)
+      else
+        PreOrderJob.perform_later(@widget.id)
+      end
+      redirect_to widgets_path
+    else
+      render :new
+    end
+  end
+end
+          </code></pre>
+        </section>
+        <section>
+          <h1>Ruby Language™ to the rescue!</h1>
+        </section>
+        <section>
+          <h1><code>class</code></h1>
+          <h1><code>def</code></h1>
+        </section>
+        <section>
+          <pre><code class="language-ruby" data-noescape data-trim data-line-numbers="1-2">
+class
+  def
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+  end
+end
+          </code></pre>
+        </section>
+        <section>
+          <pre><code class="language-ruby" data-noescape data-trim data-line-numbers="3-13">
+class
+  def              (widget_params)
+    widget = Widget.new(widget_params)
+    if widget.save
+      if widget.manufacturer.legacy?
+        SalesNotification.create!(widget: widget)
+      elsif widget.price > 1_000
+        AdminMailer.new_widget(widget)
+      else
+        PreOrderJob.perform_later(widget.id)
+      end
+    end
+    widget
+  end
+end
+          </code></pre>
+        </section>
+        <section>
+          <pre><code class="language-ruby" data-noescape data-trim data-line-numbers="1-2|">
+class WidgetCreation
+  def create_widget(widget_params)
+    widget = Widget.new(widget_params)
+    if widget.save
+      if widget.manufacturer.legacy?
+        SalesNotification.create!(widget: widget)
+      elsif widget.price > 1_000
+        AdminMailer.new_widget(widget)
+      else
+        PreOrderJob.perform_later(widget.id)
+      end
+    end
+    widget
+  end
+end
+          </code></pre>
+        </section>
+        <section>
+          <h1>Awesome Rails Feature</h2>
+          <code class="fragment h2">mkdir</code>
+        </section>
+        <section>
+          <pre><code class="language-plaintext" data-noescape data-trim>
+> mkdir app/services
+          </code></pre>
+        </section>
+        <section>
+          <h2></h2>
+          <pre><code class="language-plaintext smaller" data-noescape data-trim>
+> ls app
+assets/           # Assets like CSS or Images
+channels/         # Channels for Action Cable
+controllers/      # HTTP                     
+helpers/          # View helpers             
+jobs/             # Background jobs          
+mailers/          # Sending email            
+models/           # Database Access          
+services/         # Business Logic           
+views/            # HTML views               
+          </code></pre>
+        </section>
+        <section>
+          <h2></h2>
+          <pre><code class="language-plaintext smaller" data-noescape data-trim>
+> ls app
+assets/           # Assets like CSS or Images and nothing else
+channels/         # Channels for Action Cable and nothing else
+controllers/      # HTTP                      and nothing else
+helpers/          # View helpers              and nothing else
+jobs/             # Background jobs           and nothing else
+mailers/          # Sending email             and nothing else
+models/           # Database Access           and nothing else
+services/         # Business Logic            and nothing else
+views/            # HTML views                and nothing else
+          </code></pre>
+        </section>
+        <section>
+          <pre><code class="language-ruby smallish" data-noescape data-trim data-line-numbers>
+class WidgetsController < ApplicationController
+  def create
+    @widget = WidgetCreation.new.create_widget(widget_params)
+    if @widget.valid?
+      redirect_to widgets_path
+    else
+      render :new
+    end
+  end
+end
+          </code></pre>
+        </section>
+        <section>
+          <h1><span class="fragment">True</span> Facts</h1>
+          <ul>
+            <li class="fragment"><code>WidgetsController</code> is stable.</li>
+            <li class="fragment"><code>Widget</code> is also stable.</li>
+            <li class="fragment">Tests that require rows in <code>WIDGETS</code> are stable.</li>
+            <li class="fragment">Classes that use <code>Widget</code> or its instances are stable.</li>
+          </ul>
+          <p class="fragment green" style="font-size: 150%; font-weight: bold; text-transform: uppercase">Changes to Widget Creation Are Now Well-Isolated</p>
+        </section>
+        <section>
+          <img src="images/srp.jpg">
+        </section>
+        <section>
+          <h1>More <span class="fragment">True</span> Facts</h1>
+          <ul>
+            <li class="fragment">We have not abstracted away Rails with hexagons or clean architects</li>
+            <li class="fragment">We have not banned features of Rails</li>
+          </ul>
+        </section>
+        <section>
+          <h1>Why you should trust me</h1>
+          <ul>
+            <li >Have done this before</li>
+            <li >Have done this “at scale” (i.e. multiple teams of more than a few people)</li>
+            <li >Have seen codebases grow for years</li>
+            <li >Was accountable for team output</li>
+          </ul>
+        </section>
+        <section>
+          <h1>Some things to reconcile</h1>
+          <ul>
+            <li class="fragment green">Validations are in the Active Record…aren't they business logic?</li>
+            <li class="fragment comic">tHe COdE iS uGLy aNd i HAtE iT</li>
+            <li class="fragment yelling">But does it scale?</li>
+          </ul>
+        </section>
+        <section>
+          <h1>Validations are a form of business logic</h1>
+        </section>
+        <section>
+        <h2>
+          <code>ActiveModel::Validations</code> is extremely well designed. We should not abandon it
+        </h2>
+        </section>
+        <section>
+          <h2>This is called a “tradeoff”, and it's a good one to make</h2>
+        </section>
+        <section>
+          <h1>No business logic in Active Records</h1>
+          <h2 class="fragment">other than Validations</h2>
+          <h3 class="fragment">(remember <code>ActiveModel::Validations</code> exists)</h3>
+        </section>
+        <section>
+          <h1>Manifesto Against Code I Find Ugly and Gross</h1>
+        </section>
+        <section>
+          <h1>Doctrine<br> Against Code I Find Ugly and Gross</h1>
+        </section>
+        <section>
+          <h2>
+            Do you want a part of your dev process where:
+          </h2>
+          <ul>
+            <li class="fragment">everyone argues about what code is beautiful?</li>
+            <li class="fragment">the person in charge sets the standard of beauty and the team spends time meeting it?</li>
+          </ul>
+        </section>
+        <section>
+          <h1><code>Wiget.create</code> inserts rows into the <code>WIDGETS</code> database table</h1>
+          <h2 class="fragment">It just does.</h2>
+        </section>
+        <section class="inverse">
+          <h3>Elsewhere in the multi-verse where it was called <code>WidgetsTable.insert_new_row</code></h3>
+          <img width="1200" src="images/simpsons-laywers.png">
+        </section>
+        <section>
+          <h1>More <span class="fragment">True</span> Facts</h1>
+          <ul>
+            <li class="fragment">It's OK if code is not “object-oriented”</li>
+            <li class="fragment">It's OK if someone calls your code “procedural”</li>
+          </ul>
+        </section>
+        <section>
+          <h1 class="yelling">But Does it Scale?</h1>
+        </section>
+        <section>
+          <h1>Yes</h1>
+        </section>
+        <section>
+          <h1>Over time:</h1>
+          <ul>
+            <li class="fragment">You will have lots of services</li>
+            <li class="fragment">They will be complex (necessarily)</li>
+            <li class="fragment">But…</li>
+          </ul>
+          <h2 class="fragment">You will see your app for what it really does</h2>
+        </section>
+        <section>
+          <h2>Even the least-fancy service layer will make it obvious how to keep itself organized</h2>
+        </section>
+        <section>
+          <h1>Strategies to Manage This</h1>
+        </section>
+        <section>
+          <h2>New services for<br> new use-cases</h2>
+          <pre><code class="language-ruby" data-noescape data-trim data-line-numbers="5-6">
+class SalesTeamNotifier
+  def send_daily_notifications
+  end
+end
+          </code></pre>
+        </section>
+        <section>
+          <h2>New public methods for tightly-related concepts</h2>
+          <pre><code class="language-ruby" data-noescape data-trim data-line-numbers="5-6">
+class WidgetCreation
+  def create_widget(…)
+  end
+
+  def import_widget_from_csv(…)
+  end
+end
+          </code></pre>
+        </section>
+        <section>
+          <h3>Private methods to<br> share implementation internally</h3>
+          <pre><code class="language-ruby smaller" data-noescape data-trim data-line-numbers="10-14">
+class WidgetCreation
+  def create_widget(…)
+    notify_admins(…)
+  end
+
+  def import_widget_from_csv(…)
+    notify_admins(…)
+  end
+
+private
+
+  def notify_admins(…)
+    # code to share
+  end
+end
+          </code></pre>
+        </section>
+        <section>
+          <h2>Extract new services to<br>externalize implementation<br> (or facilitate testing)</h2>
+          <pre><code class="language-ruby" data-noescape data-trim data-line-numbers="5-7">
+class WidgetCreation
+
+private
+
+  def notify_admins(…)
+    AdminNotifier.notify_on_new_widget(…)
+  end
+end
+          </code></pre>
+        </section>
+        <section>
+          <h2>Namespaces to group concepts you discover</h2>
+          <pre><code class="language-ruby" data-noescape data-trim>
+class Widgets::Creation
+  # …
+end
+
+class Widgets::Archival
+  # …
+end
+
+class Widgets::Reporting
+  # …
+end
+          </code></pre>
+        </section>
+        <section>
+          <h1>None of this works without tests, BTW!</h1>
+        </section>
+        <section>
+          <h1>If you want to, you can still:</h1>
+          <ul>
+            <li class="fragment">Use OO features like mixins, delegation, and inheritance</li>
+            <li class="fragment">Use pure functions and whatever monads are</li>
+            <li class="fragment">
+              Require a debate about the use of colons or hashrockets before shipping
+            </li>
+          </ul>
+        </section>
+        <section>
+          <h1>But you probably won't want to</h1>
+        </section>
+        <section>
+          <h1>
+            Treat your <em>app</em> for what it is
+          </h1>
+            <h2>not what you might imagine it could be</h2>
+        </section>
+        <section>
+          <h1>
+            Treat Rails for what it is
+          </h1>
+            <h2>not what you would like it to be</h2>
+        </section>
+        <section>
+          <h1>
+          Don't put business logic in your active records
+          </h1>
+          <h2>(except for Validations)</h2>
+        </section>
+        <section>
+          <h1>
+            Your Service Layer Needn't be Fancy, It Just Needs to Exist
+          </h1>
+        </section>
+        <section>
+          <div style="display: flex">
+            <div>
+              <h3 class="red">I am not hiring</h3>
+              <h1 class="smaller">But I have a Book</h1>
+              <code style="font-size: 120%">sustainable-rails.com</code>
+              <p>
+                50% off with code <code><strong>SERVICELAYER</strong></code>
+              </p>
+              <div style="margin-top: 2rem; border: solid thin #999; border-radius: 1rem; padding: 1rem; padding-top: 1.5rem; padding-bottom: 1.5rem; background-color: #eee; font-size: 80%">
+              <p style="margin: 0">
+                Not from the US?<br>
+                International pricing may be a better deal:
+              </p>
+              <code style="margin-top: 1rem; display: block">https://bit.ly/davetron5000-ppp</code>
+              </div>
+            </div>
+            <img src="images/book.png">
+          </div>
+        </section>
+			</div>
+		</div>
+
+		<script src="dist/reveal.js"></script>
+		<script src="plugin/notes/notes.js"></script>
+		<script src="plugin/markdown/markdown.js"></script>
+		<script src="plugin/highlight/highlight.js"></script>
+		<script>
+			// More info about initialization & config:
+			// - https://revealjs.com/initialization/
+			// - https://revealjs.com/config/
+			Reveal.initialize({
+        width: 1920,
+        height: 1080,
+        controls: false,
+        transition: "none",
+				hash: true,
+				// Learn about plugins: https://revealjs.com/plugins/
+				plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ]
+			});
+		</script>
+	</body>
+</html>
