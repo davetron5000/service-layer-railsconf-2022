@@ -111,7 +111,7 @@ section.has-dark-background, section.has-dark-background h1, section.has-dark-ba
   letter-spacing: var(--r-heading-letter-spacing);
   text-transform: var(--r-heading-text-transform);
   color: var(--r-heading-color);
-  line-height: 0.9;
+  line-height: 1.0;
 }
 .reveal h1.smaller {
   font-size: var(--r-heading2-size);

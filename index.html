@@ -51,20 +51,6 @@ end
           </code></pre>
         </section>
         <section>
-          <pre><code class="language-ruby" data-noescape data-trim data-line-numbers>
-class WidgetsController < ApplicationController
-  def create
-    @widget = Widget.new(widget_params)
-    if @widget.save
-      redirect_to widgets_path
-    else
-      render :new
-    end
-  end
-end
-          </code></pre>
-        </section>
-        <section>
           <pre><code class="language-ruby" data-noescape data-trim data-line-numbers="5">
 class WidgetsController < ApplicationController
   def create
@@ -221,6 +207,9 @@ end
           </h3>
         </section>
         <section>
+          <h1>We're talking about where code is supposed to go</h1>
+        </section>
+        <section>
           <h1>How does Rails organize the code in your app?</h1>
         </section>
         <section>
@@ -306,18 +295,19 @@ views/            # HTML views
           <img src="images/guide-full.png">
         </section>
         <section>
-          <h1><code>app/models</code></h1>
-          <h2>contains models of data—often stored in a database</h2>
+          <h1 style="text-align: left"><code>app/models</code></h1>
+          <h2 style="text-align: right; margin-bottom: 2rem;">contains models of data</h2>
+          <h1 style="text-align: left"><code>bin/rails g model</code></h1>
+          <h2 style="text-align: right">creates a thing to manage data in a database</h2>
         </section>
         <section>
-          <h1>That is not the same as</h1>
-          <h2>the model of your company, business, organization, process, or user actions</h2>
+          <h1>Treat Rails for What it Is</h1>
         </section>
         <section>
-          <h1>Your business logic is its own architectural component</h1>
+          <h1>Manage business logic as an architectural component</h1>
         </section>
         <section>
-          <h1>It is a layer or seam</h1>
+          <h2>Though…it is more like a layer or seam</h2>
         </section>
         <section>
           <img src="images/layers.png">
